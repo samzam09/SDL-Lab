@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Handy AI — Gesture Intelligence Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --accent: #7cffc4;
+  --accent2: #ff6bca;
+  --accent3: #6bb5ff;
+  --bg: #03020a;
+  --glass: rgba(255,255,255,0.04);
+  --glass-border: rgba(255,255,255,0.08);
+  --mode-color: var(--accent);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); font-family: 'DM Mono', monospace; color: #fff; }
+
+/* NOISE OVERLAY */
+#noise {
+  position: fixed; inset: 0; z-index: 100; pointer-events: none;
+  opacity: 0.025;
+}
+
+/* TOP STRIPE */
+#topStripe {
+  position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 200;
+  background: var(--mode-color);
+  transition: background 0.4s ease;
+  box-shadow: 0 0 12px var(--mode-color);
+}
+
+/* LAYERS */
+#videoEl {
+  position: fixed; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; transform: scaleX(-1);
+  filter: brightness(0.18) saturate(1.4);
+  z-index: 1;
+}
+#bgCanvas { position: fixed; inset: 0; z-index: 2; }
+#fxCanvas { position: fixed; inset: 0; z-index: 3; }
+#drawCanvas { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
+
+/* SPLASH */
+#splash {
+  position: fixed; inset: 0; z-index: 999;
+  background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: opacity 0.8s ease;
+}
+#splash.fade-out { opacity: 0; pointer-events: none; }
+
+.splash-rings {
+  position: absolute;
+  width: 420px; height: 420px;
+}
+.ring {
+  position: absolute; inset: 0; border-radius: 50%; border: 1px solid;
+  animation: ring-pulse 3s ease-in-out infinite;
+}
+.ring:nth-child(1) { border-color: rgba(124,255,196,0.25); animation-delay: 0s; }
+.ring:nth-child(2) { border-color: rgba(107,181,255,0.18); inset: 30px; animation-delay: 0.6s; }
+.ring:nth-child(3) { border-color: rgba(255,107,202,0.14); inset: 60px; animation-delay: 1.2s; }
+@keyframes ring-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+.splash-content {
+  position: relative; z-index: 1; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 20px;
+}
+
+.splash-logo {
+  font-family: 'Syne', sans-serif; font-weight: 800;
+  font-size: clamp(56px, 8vw, 96px);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent3) 50%, var(--accent2) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -2px;
+  filter: drop-shadow(0 0 40px rgba(124,255,196,0.3));
+}
+.splash-sub {
+  font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 4px;
+  text-transform: uppercase; color: rgba(255,255,255,0.35);
+}
+.splash-pills {
+  display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 8px;
+}
+.pill {
+  padding: 6px 14px; border-radius: 100px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  font-size: 11px; color: rgba(255,255,255,0.5);
+  letter-spacing: 0.5px;
+}
+.pill:nth-child(1) { border-color: rgba(124,255,196,0.3); color: rgba(124,255,196,0.7); }
+.pill:nth-child(2) { border-color: rgba(107,181,255,0.3); color: rgba(107,181,255,0.7); }
+.pill:nth-child(3) { border-color: rgba(255,107,202,0.3); color: rgba(255,107,202,0.7); }
+
+#enterBtn {
+  margin-top: 12px;
+  padding: 14px 40px; border-radius: 100px;
+  border: 1.5px solid var(--accent);
+  background: rgba(124,255,196,0.08);
+  color: var(--accent); font-family: 'DM Mono', monospace;
+  font-size: 13px; letter-spacing: 2px; text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 0 30px rgba(124,255,196,0.2), inset 0 0 20px rgba(124,255,196,0.05);
+  transition: all 0.3s ease;
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+#enterBtn:hover {
+  background: rgba(124,255,196,0.15);
+  box-shadow: 0 0 50px rgba(124,255,196,0.4), inset 0 0 30px rgba(124,255,196,0.1);
+  transform: scale(1.03);
+}
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 30px rgba(124,255,196,0.2), inset 0 0 20px rgba(124,255,196,0.05); }
+  50% { box-shadow: 0 0 50px rgba(124,255,196,0.35), inset 0 0 30px rgba(124,255,196,0.08); }
+}
+.splash-note {
+  font-size: 10px; color: rgba(255,255,255,0.2); letter-spacing: 1px;
+}
+
+/* TOP BAR */
+#topBar {
+  position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+  z-index: 150; display: flex; align-items: center; gap: 12px;
+  background: rgba(3,2,10,0.6); backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border); border-radius: 100px;
+  padding: 8px 16px;
+}
+.brand {
+  font-family: 'Syne', sans-serif; font-weight: 800; font-size: 15px;
+  background: linear-gradient(135deg, var(--accent), var(--accent3));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; white-space: nowrap;
+}
+.beta-pill {
+  font-size: 8px; padding: 2px 7px; border-radius: 100px;
+  background: rgba(124,255,196,0.12); border: 1px solid rgba(124,255,196,0.25);
+  color: var(--accent); letter-spacing: 1px; text-transform: uppercase;
+}
+.divider { width: 1px; height: 20px; background: var(--glass-border); }
+#modeSwitcher {
+  display: flex; gap: 4px;
+  background: rgba(0,0,0,0.3); border-radius: 100px; padding: 3px;
+}
+.mode-btn {
+  padding: 6px 14px; border-radius: 100px; border: none;
+  background: transparent; color: rgba(255,255,255,0.4);
+  font-family: 'DM Mono', monospace; font-size: 12px;
+  cursor: pointer; transition: all 0.25s ease;
+  display: flex; align-items: center; gap: 5px; white-space: nowrap;
+}
+.mode-btn.active {
+  background: rgba(255,255,255,0.08);
+  color: var(--mode-color);
+  box-shadow: 0 0 12px rgba(124,255,196,0.2);
+}
+.mode-btn:hover:not(.active) { color: rgba(255,255,255,0.7); }
+.chip {
+  font-size: 10px; padding: 4px 10px; border-radius: 100px;
+  background: var(--glass); border: 1px solid var(--glass-border);
+  color: rgba(255,255,255,0.5); letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+#camDot {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: #555; margin-right: 3px; transition: background 0.3s ease;
+}
+#camDot.active { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+/* BOTTOM HUD */
+#bottomHud {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  z-index: 150;
+  background: rgba(3,2,10,0.65); backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border); border-radius: 100px;
+  padding: 8px 18px; display: flex; align-items: center; gap: 10px;
+  min-width: 160px; justify-content: center;
+}
+#gestureLabel { font-size: 12px; color: rgba(255,255,255,0.6); letter-spacing: 0.5px; }
+#activeDot {
+  width: 7px; height: 7px; border-radius: 50%; background: #333;
+  transition: background 0.2s;
+}
+#activeDot.pulse {
+  background: var(--mode-color);
+  box-shadow: 0 0 8px var(--mode-color);
+  animation: dot-pulse 0.8s ease-in-out infinite;
+}
+@keyframes dot-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.4); }
+}
+
+/* HELP PANEL */
+#helpPanel {
+  position: fixed; bottom: 20px; right: 20px; z-index: 150;
+  background: rgba(3,2,10,0.65); backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border); border-radius: 14px;
+  padding: 14px 16px; max-width: 210px;
+}
+#helpPanel h4 { font-family: 'Syne', sans-serif; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--mode-color); margin-bottom: 8px; }
+#helpPanel ul { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+#helpPanel li { font-size: 10px; color: rgba(255,255,255,0.4); line-height: 1.4; }
+#helpPanel li::before { content: '›'; color: var(--mode-color); margin-right: 6px; }
+
+/* TOAST */
+#toast {
+  position: fixed; inset: 0; z-index: 160; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+}
+#toastInner {
+  font-family: 'Syne', sans-serif; font-weight: 800;
+  font-size: clamp(28px, 5vw, 52px);
+  color: var(--mode-color);
+  text-shadow: 0 0 40px var(--mode-color);
+  opacity: 0; transform: scale(0.85);
+  transition: opacity 0.15s ease, transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+}
+#toastInner.show { opacity: 1; transform: scale(1); }
+
+/* WRITE MODE EXTRAS */
+#shakeRing {
+  position: fixed; bottom: 90px; right: 20px; z-index: 151;
+  width: 50px; height: 50px; display: none;
+}
+#clearBtn {
+  position: fixed; bottom: 20px; right: 20px; z-index: 151;
+  padding: 8px 16px; border-radius: 100px;
+  background: rgba(107,181,255,0.1); border: 1px solid rgba(107,181,255,0.3);
+  color: var(--accent3); font-family: 'DM Mono', monospace;
+  font-size: 11px; cursor: pointer; letter-spacing: 1px;
+  display: none; transition: all 0.2s ease;
+}
+#clearBtn:hover { background: rgba(107,181,255,0.2); }
+
+@media (max-width: 600px) {
+  .mode-btn span.label { display: none; }
+  .splash-pills { flex-direction: column; align-items: center; }
+  #helpPanel { max-width: 160px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Noise -->
+<svg id="noise" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+  <filter id="noise-filter"><feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter>
+  <rect width="100%" height="100%" filter="url(#noise-filter)"/>
+</svg>
+<div id="topStripe"></div>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div class="splash-rings">
+    <div class="ring"></div><div class="ring"></div><div class="ring"></div>
+  </div>
+  <div class="splash-content">
+    <div class="splash-logo">Handy AI</div>
+    <div class="splash-sub">Gesture Intelligence Platform</div>
+    <div class="splash-pills">
+      <div class="pill">Real-time Tracking</div>
+      <div class="pill">Gesture Physics</div>
+      <div class="pill">Air Drawing</div>
+    </div>
+    <button id="enterBtn">Enter Experience</button>
+    <div class="splash-note">Camera access required · Best in Chrome / Edge</div>
+  </div>
+</div>
+
+<!-- MEDIA -->
+<video id="videoEl" autoplay muted playsinline></video>
+<canvas id="bgCanvas"></canvas>
+<canvas id="fxCanvas"></canvas>
+<canvas id="drawCanvas"></canvas>
+
+<!-- TOP BAR -->
+<div id="topBar">
+  <span class="brand">Handy AI</span>
+  <span class="beta-pill">Beta</span>
+  <div class="divider"></div>
+  <div id="modeSwitcher">
+    <button class="mode-btn active" data-mode="play"><span>▶</span><span class="label">Play</span></button>
+    <button class="mode-btn" data-mode="shapes"><span>♥</span><span class="label">Shapes</span></button>
+    <button class="mode-btn" data-mode="write"><span>✏</span><span class="label">Write</span></button>
+  </div>
+  <div class="divider"></div>
+  <div class="chip"><span id="camDot"></span><span id="fpsDisplay">-- fps</span></div>
+  <div class="chip">✋ <span id="handCount">0</span></div>
+</div>
+
+<!-- BOTTOM HUD -->
+<div id="bottomHud">
+  <div id="activeDot"></div>
+  <div id="gestureLabel">waiting for hands...</div>
+</div>
+
+<!-- HELP PANEL -->
+<div id="helpPanel">
+  <h4 id="helpTitle">Play Mode</h4>
+  <ul id="helpList"></ul>
+</div>
+
+<!-- TOAST -->
+<div id="toast"><div id="toastInner"></div></div>
+
+<!-- WRITE EXTRAS -->
+<svg id="shakeRing" viewBox="0 0 50 50">
+  <circle cx="25" cy="25" r="20" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="2"/>
+  <circle id="shakeArc" cx="25" cy="25" r="20" fill="none" stroke="var(--accent3)" stroke-width="2.5"
+    stroke-dasharray="125.6" stroke-dashoffset="125.6" stroke-linecap="round"
+    transform="rotate(-90 25 25)" style="transition: stroke 0.3s ease"/>
+</svg>
+<button id="clearBtn">🗑 Clear Canvas</button>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<script>
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
+const state = {
+  mode: 'play',
+  fps: 0, frameCount: 0, lastFpsTime: 0,
+  hands: [],
+  particles: [], ripples: [],
+  drawPaths: [], activePath: null, penDown: false,
+  wristXHistory: [], lastShakeTime: 0, shakeProgress: 0,
+  hum: null, humGain: null,
+  audioCtx: null, audioReady: false,
+  gestureActive: false, lastGesture: '',
+  velocity: 0, prevHandPos: null,
+  drawPathColor: 0,
+};
+
+// Mode config
+const MODES = {
+  play: { color: '#7cffc4', cssVar: 'var(--accent)' },
+  shapes: { color: '#ff6bca', cssVar: 'var(--accent2)' },
+  write: { color: '#6bb5ff', cssVar: 'var(--accent3)' },
+};
+const HELP = {
+  play: ['Pinch ✌ for zap spark', 'Both hands → lightning', 'Move fast = faster rain', 'Hum pitch = hand gap'],
+  shapes: ['Both hands → HEART', 'One hand index+mid → ✌', 'Both fists → ★ star burst', 'Requires 2 hands'],
+  write: ['Index up → draw stroke', 'Pinch → lift pen', 'Open palm + shake = clear', 'See ring fill bottom-right'],
+};
+
+// ═══════════════════════════════════════════
+//  CANVAS SETUP
+// ═══════════════════════════════════════════
+const video = document.getElementById('videoEl');
+const bgC = document.getElementById('bgCanvas');
+const fxC = document.getElementById('fxCanvas');
+const dwC = document.getElementById('drawCanvas');
+const bgX = bgC.getContext('2d');
+const fxX = fxC.getContext('2d');
+const dwX = dwC.getContext('2d');
+
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  [bgC, fxC, dwC].forEach(c => { c.width = w; c.height = h; });
+  initMatrixColumns(w);
+}
+window.addEventListener('resize', resize);
+
+// ═══════════════════════════════════════════
+//  MATRIX RAIN
+// ═══════════════════════════════════════════
+const KATAKANA = Array.from({length:96},(_,i)=>String.fromCharCode(0x30A0+i));
+let matCols = [], matFontSize = 15, matHue = 0;
+function initMatrixColumns(w) {
+  const cols = Math.floor(w / matFontSize);
+  matCols = Array.from({length:cols},()=>Math.random()*-100|0);
+}
+function drawMatrix(dt) {
+  matHue = (matHue + dt * 20) % 360;
+  const W = bgC.width, H = bgC.height;
+  const fadeAmt = Math.min(0.22, 0.12 + state.velocity * 0.4);
+  bgX.globalCompositeOperation = 'destination-out';
+  bgX.fillStyle = `rgba(0,0,0,${fadeAmt})`;
+  bgX.fillRect(0,0,W,H);
+  bgX.globalCompositeOperation = 'source-over';
+  bgX.font = `${matFontSize}px "DM Mono"`;
+  const speedMult = 1 + state.velocity * 5;
+  matCols.forEach((y, i) => {
+    const ch = KATAKANA[Math.random()*KATAKANA.length|0];
+    const hue = (matHue + i*3) % 360;
+    bgX.fillStyle = `hsl(${hue},70%,60%)`;
+    bgX.fillText(ch, i*matFontSize, y*matFontSize);
+    if (y*matFontSize > H && Math.random() > 0.975) matCols[i] = 0;
+    matCols[i] += speedMult;
+  });
+}
+
+// ═══════════════════════════════════════════
+//  AUDIO
+// ═══════════════════════════════════════════
+function initAudio() {
+  if (state.audioReady) return;
+  state.audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  state.audioReady = true;
+}
+function playZap() {
+  if (!state.audioReady) return;
+  const ctx = state.audioCtx;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(700, ctx.currentTime);
+  o.frequency.exponentialRampToValueAtTime(30, ctx.currentTime+0.12);
+  g.gain.setValueAtTime(0.3, ctx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.12);
+  o.connect(g); g.connect(ctx.destination);
+  o.start(); o.stop(ctx.currentTime+0.13);
+}
+function playPop() {
+  if (!state.audioReady) return;
+  const ctx = state.audioCtx;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'sine';
+  const f = 200 + Math.random()*200;
+  o.frequency.setValueAtTime(f, ctx.currentTime);
+  o.frequency.exponentialRampToValueAtTime(f*0.5, ctx.currentTime+0.08);
+  g.gain.setValueAtTime(0.25, ctx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.08);
+  o.connect(g); g.connect(ctx.destination);
+  o.start(); o.stop(ctx.currentTime+0.09);
+}
+function startHum() {
+  if (!state.audioReady || state.hum) return;
+  const ctx = state.audioCtx;
+  state.hum = ctx.createOscillator();
+  state.humGain = ctx.createGain();
+  state.hum.type = 'sine'; state.hum.frequency.value = 80;
+  state.humGain.gain.value = 0;
+  state.hum.connect(state.humGain); state.humGain.connect(ctx.destination);
+  state.hum.start();
+}
+function stopHum() {
+  if (!state.hum) return;
+  state.humGain.gain.setTargetAtTime(0, state.audioCtx.currentTime, 0.1);
+  setTimeout(()=>{try{state.hum.stop();}catch(e){}state.hum=null;state.humGain=null;},300);
+}
+function updateHum(dist) {
+  if (!state.hum || !state.humGain) return;
+  const freq = 80 + dist * 280;
+  const gain = 0.08;
+  state.hum.frequency.setTargetAtTime(freq, state.audioCtx.currentTime, 0.05);
+  state.humGain.gain.setTargetAtTime(gain, state.audioCtx.currentTime, 0.05);
+}
+
+// ═══════════════════════════════════════════
+//  PARTICLES & RIPPLES
+// ═══════════════════════════════════════════
+function spawnParticles(x, y, count, color) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random()*Math.PI*2;
+    const speed = 1+Math.random()*4;
+    state.particles.push({ x, y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed-1, life: 45, maxLife: 45, color });
+  }
+}
+function spawnRipple(x, y, color) {
+  state.ripples.push({ x, y, r: 0, maxR: 80, life: 40, maxLife: 40, color });
+}
+function updateParticles(ctx) {
+  ctx.save(); ctx.globalCompositeOperation = 'screen';
+  state.particles = state.particles.filter(p => {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.15;
+    p.life--;
+    const t = p.life / p.maxLife;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, t*3, 0, Math.PI*2);
+    ctx.fillStyle = p.color + Math.floor(t*255).toString(16).padStart(2,'0');
+    ctx.fill();
+    return p.life > 0;
+  });
+  ctx.restore();
+}
+function updateRipples(ctx) {
+  ctx.save(); ctx.globalCompositeOperation = 'screen';
+  state.ripples = state.ripples.filter(r => {
+    r.r += (r.maxR - r.r) * 0.12; r.life--;
+    const t = r.life / r.maxLife;
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, Math.PI*2);
+    ctx.strokeStyle = r.color + Math.floor(t*200).toString(16).padStart(2,'0');
+    ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r*0.6, 0, Math.PI*2);
+    ctx.strokeStyle = r.color + Math.floor(t*120).toString(16).padStart(2,'0');
+    ctx.lineWidth = 1; ctx.stroke();
+    return r.life > 0;
+  });
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════
+//  HAND HELPERS
+// ═══════════════════════════════════════════
+const CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],
+  [0,5],[5,6],[6,7],[7,8],
+  [0,9],[9,10],[10,11],[11,12],
+  [0,13],[13,14],[14,15],[15,16],
+  [0,17],[17,18],[18,19],[19,20],
+  [5,9],[9,13],[13,17]
+];
+function lm(hand, i) { return { x: hand[i].x * fxC.width, y: hand[i].y * fxC.height }; }
+function dist2D(a, b) { return Math.hypot(a.x-b.x, a.y-b.y); }
+function distN(a, b) { return Math.hypot(a.x-b.x, a.y-b.y); }
+function fingerExtended(hand, tip, pip) {
+  return hand[tip].y < hand[pip].y - 0.02;
+}
+function handSpread(hand) {
+  const tips = [4,8,12,16,20];
+  let max = 0;
+  for (let i=0;i<tips.length;i++) for (let j=i+1;j<tips.length;j++)
+    max = Math.max(max, distN(hand[tips[i]], hand[tips[j]]));
+  return max;
+}
+function isPinch(hand) {
+  return distN(hand[4], hand[8]) < 0.055;
+}
+function isPinchWrite(hand) {
+  return distN(hand[4], hand[8]) < 0.06;
+}
+function isIndexPointing(hand) {
+  const tipDist = distN(hand[8], hand[0]);
+  return tipDist > 0.17 && !isPinchWrite(hand);
+}
+function isFist(hand) { return handSpread(hand) < 0.09; }
+function isOpenPalm(hand) {
+  let count = 0;
+  if (fingerExtended(hand,8,6)) count++;
+  if (fingerExtended(hand,12,10)) count++;
+  if (fingerExtended(hand,16,14)) count++;
+  if (fingerExtended(hand,20,18)) count++;
+  return count >= 3;
+}
+
+// ═══════════════════════════════════════════
+//  DRAW SKELETON
+// ═══════════════════════════════════════════
+let skeletonHue = 0;
+function drawSkeleton(ctx, hand, hueOffset) {
+  const hue = (skeletonHue + hueOffset) % 360;
+  CONNECTIONS.forEach(([a,b]) => {
+    const pa = lm(hand, a), pb = lm(hand, b);
+    ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y);
+    ctx.strokeStyle = `hsla(${hue},90%,70%,0.7)`;
+    ctx.lineWidth = 1.5;
+    ctx.shadowBlur = 8; ctx.shadowColor = `hsl(${hue},90%,70%)`;
+    ctx.stroke();
+  });
+  [4,8,12,16,20].forEach(i => {
+    const p = lm(hand, i);
+    ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI*2);
+    ctx.fillStyle = `hsl(${(hue+60)%360},90%,75%)`;
+    ctx.shadowBlur = 15; ctx.shadowColor = `hsl(${(hue+60)%360},90%,75%)`;
+    ctx.fill();
+    // sparkles
+    if (Math.random() > 0.6) {
+      spawnParticles(p.x, p.y, 1, `#${MODES[state.mode].color.slice(1)}`);
+    }
+  });
+  ctx.shadowBlur = 0;
+}
+
+// ═══════════════════════════════════════════
+//  LIGHTNING
+// ═══════════════════════════════════════════
+function drawLightning(ctx, x1,y1,x2,y2,color) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+  ctx.shadowBlur = 15; ctx.shadowColor = color;
+  ctx.beginPath(); ctx.moveTo(x1,y1);
+  const segs = 8;
+  for (let i=1;i<segs;i++) {
+    const t = i/segs;
+    const mx = x1+(x2-x1)*t + (Math.random()-0.5)*30;
+    const my = y1+(y2-y1)*t + (Math.random()-0.5)*30;
+    ctx.lineTo(mx,my);
+  }
+  ctx.lineTo(x2,y2); ctx.stroke();
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════
+//  MANDALA
+// ═══════════════════════════════════════════
+let manRot = 0;
+function drawMandala(ctx, h1, h2, t) {
+  const tips = [4,8,12,16,20];
+  const pts = [...tips.map(i=>lm(h1,i)), ...tips.map(i=>lm(h2,i))];
+  const cx = pts.reduce((s,p)=>s+p.x,0)/pts.length;
+  const cy = pts.reduce((s,p)=>s+p.y,0)/pts.length;
+  ctx.save();
+  ctx.translate(cx,cy); ctx.rotate(manRot);
+  ctx.globalCompositeOperation = 'screen';
+  const r = dist2D(pts[0],{x:cx,y:cy})*0.8;
+  for (let ring=1;ring<=3;ring++) {
+    ctx.beginPath();
+    for (let a=0;a<pts.length;a++) {
+      const angle = (a/pts.length)*Math.PI*2 + ring*0.4;
+      const rr = r*(ring/3);
+      a===0 ? ctx.moveTo(Math.cos(angle)*rr,Math.sin(angle)*rr) : ctx.lineTo(Math.cos(angle)*rr,Math.sin(angle)*rr);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = `hsla(${(t*50+ring*60)%360},80%,70%,${0.3-ring*0.08})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  ctx.restore();
+  manRot += 0.01;
+}
+
+// ═══════════════════════════════════════════
+//  SHAPES MODE
+// ═══════════════════════════════════════════
+let heartPhase = 0, starRot = 0;
+function drawHeart(ctx, cx, cy) {
+  heartPhase += 0.06;
+  const scale = 1 + Math.sin(heartPhase)*0.05;
+  const s = 8 * scale;
+  ctx.save(); ctx.translate(cx,cy); ctx.scale(s,-s);
+  ctx.beginPath();
+  for (let i=0;i<200;i++) {
+    const t = (i/200)*Math.PI*2;
+    const x = 16*Math.pow(Math.sin(t),3);
+    const y = -(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t));
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  }
+  ctx.closePath();
+  const grad = ctx.createRadialGradient(0,-2,1,0,0,18);
+  grad.addColorStop(0,'rgba(255,200,240,0.9)');
+  grad.addColorStop(0.5,'rgba(255,107,202,0.8)');
+  grad.addColorStop(1,'rgba(200,0,150,0.5)');
+  ctx.fillStyle = grad;
+  ctx.shadowBlur = 30; ctx.shadowColor = '#ff6bca';
+  ctx.fill();
+  ctx.strokeStyle = '#ff6bca'; ctx.lineWidth = 0.3; ctx.stroke();
+  // shine
+  ctx.beginPath(); ctx.ellipse(-4,-8,3,2,Math.PI/4,0,Math.PI*2);
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.shadowBlur = 0; ctx.fill();
+  ctx.restore();
+}
+function drawPeace(ctx, cx, cy) {
+  const r = 60;
+  ctx.save(); ctx.translate(cx,cy);
+  ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2);
+  ctx.strokeStyle = '#ff6bca'; ctx.lineWidth = 3;
+  ctx.shadowBlur = 20; ctx.shadowColor = '#ff6bca'; ctx.stroke();
+  [[0,-r,0,r],[0,0,-r*Math.sin(Math.PI/3),r/2],[0,0,r*Math.sin(Math.PI/3),r/2]].forEach(([x1,y1,x2,y2])=>{
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  });
+  ctx.restore();
+}
+function drawStarBurst(ctx, cx, cy, t) {
+  starRot += 0.02;
+  const pts = 8, r1 = 70, r2 = 35;
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(starRot);
+  ctx.globalCompositeOperation = 'screen';
+  const grad = ctx.createRadialGradient(0,0,0,0,0,r1);
+  grad.addColorStop(0,'rgba(255,255,255,0.95)');
+  grad.addColorStop(0.4,'rgba(255,220,60,0.8)');
+  grad.addColorStop(1,'rgba(255,200,0,0)');
+  ctx.beginPath();
+  for (let i=0;i<pts*2;i++) {
+    const a = (i/pts)*Math.PI;
+    const r = i%2===0?r1:r2;
+    i===0 ? ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r) : ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);
+  }
+  ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════
+//  WRITE MODE
+// ═══════════════════════════════════════════
+function redrawPaths() {
+  dwX.clearRect(0,0,dwC.width,dwC.height);
+  state.drawPaths.forEach(path => {
+    if (path.points.length < 2) return;
+    dwX.beginPath();
+    dwX.strokeStyle = path.color;
+    dwX.lineWidth = 4.5; dwX.lineCap = 'round'; dwX.lineJoin = 'round';
+    dwX.shadowBlur = 12; dwX.shadowColor = path.color;
+    dwX.moveTo(path.points[0].x, path.points[0].y);
+    for (let i=1;i<path.points.length-1;i++) {
+      const mx = (path.points[i].x+path.points[i+1].x)/2;
+      const my = (path.points[i].y+path.points[i+1].y)/2;
+      dwX.quadraticCurveTo(path.points[i].x,path.points[i].y,mx,my);
+    }
+    dwX.stroke();
+    dwX.shadowBlur = 0;
+  });
+}
+
+// ═══════════════════════════════════════════
+//  MAIN RENDER
+// ═══════════════════════════════════════════
+let lastTime = 0;
+function render(now) {
+  requestAnimationFrame(render);
+  const dt = Math.min((now-lastTime)/1000, 0.05);
+  lastTime = now;
+  const t = now/1000;
+  skeletonHue = (skeletonHue+60*dt)%360;
+
+  // FPS
+  state.frameCount++;
+  if (now-state.lastFpsTime > 1000) {
+    state.fps = state.frameCount;
+    state.frameCount = 0; state.lastFpsTime = now;
+    document.getElementById('fpsDisplay').textContent = state.fps+' fps';
+    document.getElementById('camDot').className = state.fps>5?'active':'';
+  }
+
+  const W = fxC.width, H = fxC.height;
+
+  // Velocity
+  if (state.hands.length>0) {
+    const wrist = lm(state.hands[0],0);
+    if (state.prevHandPos) state.velocity = Math.min(1, dist2D(wrist,state.prevHandPos)/100);
+    else state.velocity = 0;
+    state.prevHandPos = wrist;
+  } else { state.velocity *= 0.9; state.prevHandPos = null; }
+
+  drawMatrix(dt);
+
+  fxX.clearRect(0,0,W,H);
+
+  const hands = state.hands;
+  document.getElementById('handCount').textContent = hands.length;
+
+  // Mode-specific
+  if (state.mode==='play') renderPlay(fxX,hands,t,W,H);
+  else if (state.mode==='shapes') renderShapes(fxX,hands,t,W,H);
+  else if (state.mode==='write') renderWrite(fxX,hands,t,W,H);
+
+  updateParticles(fxX);
+  updateRipples(fxX);
+}
+
+// ─── PLAY ───
+let lastPinch = [false,false];
+let lastPinchTime = 0;
+function renderPlay(ctx,hands,t,W,H) {
+  ctx.save();
+  hands.forEach((hand,hi)=>{
+    drawSkeleton(ctx,hand,hi*180);
+    const pinched = isPinch(hand);
+    if (pinched && !lastPinch[hi] && t-lastPinchTime>0.3) {
+      lastPinchTime=t;
+      const p = lm(hand,8);
+      spawnRipple(p.x,p.y,'#7cffc4');
+      spawnParticles(p.x,p.y,20,'#7cffc4');
+      playZap(); showToast('⚡ Pinch');
+    }
+    lastPinch[hi]=pinched;
+  });
+  if (hands.length===2) {
+    const tips=[4,8,12,16,20];
+    tips.forEach(i=>{
+      const a=lm(hands[0],i),b=lm(hands[1],i);
+      const grad=ctx.createLinearGradient(a.x,a.y,b.x,b.y);
+      grad.addColorStop(0,`hsla(${(skeletonHue)%360},80%,70%,0.4)`);
+      grad.addColorStop(1,`hsla(${(skeletonHue+180)%360},80%,70%,0.4)`);
+      ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+      ctx.strokeStyle=grad;ctx.lineWidth=1;ctx.globalCompositeOperation='screen';ctx.stroke();
+      if(dist2D(a,b)<140) drawLightning(ctx,a.x,a.y,b.x,b.y,'rgba(180,255,255,0.8)');
+    });
+    drawMandala(ctx,hands[0],hands[1],t);
+    // hum
+    startHum();
+    const w1=lm(hands[0],0),w2=lm(hands[1],0);
+    updateHum(dist2D(w1,w2)/W);
+  } else { stopHum(); }
+  ctx.restore();
+  if(hands.length>0) setGesture('Play Mode — tracking',true);
+  else setGesture('waiting for hands...',false);
+}
+
+// ─── SHAPES ───
+let lastShapeGesture='', lastShapeTime=0;
+function renderShapes(ctx,hands,t,W,H) {
+  ctx.save();
+  if(hands.length<2){
+    setGesture('show both hands...',false);
+    ctx.restore(); return;
+  }
+  hands.forEach((h,hi)=>drawSkeleton(ctx,h,hi*180));
+  const h1=hands[0],h2=hands[1];
+  const palmDist=distN(h1[0],h2[0]);
+  const spr1=handSpread(h1), spr2=handSpread(h2);
+  const cx=(lm(h1,0).x+lm(h2,0).x)/2, cy=(lm(h1,0).y+lm(h2,0).y)/2;
+
+  // HEART
+  if(palmDist<0.35&&spr1>0.09&&spr2>0.09){
+    drawHeart(ctx,cx,cy);
+    triggerShape('♥ Heart',ctx,cx,cy,'#ff6bca','pop');
+  }
+  // STAR BURST
+  else if(isFist(h1)&&isFist(h2)){
+    drawStarBurst(ctx,cx,cy,t);
+    if(triggerShape('💥 Star Burst!',ctx,cx,cy,'#ff6bca','zap'))
+      spawnParticles(cx,cy,25,'#ffcc00');
+  }
+  // PEACE (check each hand)
+  else {
+    let peaceDone=false;
+    hands.forEach(h=>{
+      if(peaceDone) return;
+      const idxTip=distN(h[8],h[0]), midTip=distN(h[12],h[0]);
+      const rng=distN(h[16],h[0]), pky=distN(h[20],h[0]);
+      if(idxTip>0.18&&midTip>0.18&&rng<0.16&&pky<0.16){
+        const tp=lm(h,12);
+        drawPeace(ctx,tp.x,tp.y);
+        triggerShape('✌ Peace',ctx,tp.x,tp.y,'#ff6bca','pop');
+        peaceDone=true;
+      }
+    });
+    if(!peaceDone) setGesture('make a gesture...',false);
+  }
+  ctx.restore();
+}
+function triggerShape(name,ctx,cx,cy,color,sound){
+  setGesture(name,true);
+  const now=performance.now()/1000;
+  if(name!==lastShapeGesture||(now-lastShapeTime)>2){
+    lastShapeGesture=name; lastShapeTime=now;
+    showToast(name);
+    if(sound==='pop') playPop(); else playZap();
+    return true;
+  }
+  return false;
+}
+
+// ─── WRITE ───
+let lastPenDown=false;
+function renderWrite(ctx,hands,t,W,H){
+  if(hands.length===0){setGesture('show your hand...',false);return;}
+  const hand=hands[0];
+  const pointing=isIndexPointing(hand);
+  const pinched=isPinchWrite(hand);
+  const palm=isOpenPalm(hand);
+  const wristX=hand[0].x;
+
+  // Shake detection
+  state.wristXHistory.push(wristX);
+  if(state.wristXHistory.length>30) state.wristXHistory.shift();
+  let reversals=0;
+  for(let i=2;i<state.wristXHistory.length;i++){
+    const d1=state.wristXHistory[i-1]-state.wristXHistory[i-2];
+    const d2=state.wristXHistory[i]-state.wristXHistory[i-1];
+    if(Math.abs(d1)>0.01&&Math.abs(d2)>0.01&&d1*d2<0) reversals++;
+  }
+  const now=t;
+  if(palm&&t-state.lastShakeTime>2){
+    state.shakeProgress=Math.min(1,reversals/6);
+    updateShakeRing(state.shakeProgress);
+    if(reversals>=6){
+      state.drawPaths=[];
+      dwX.clearRect(0,0,dwC.width,dwC.height);
+      state.lastShakeTime=now;
+      state.shakeProgress=0; updateShakeRing(0);
+      playPop(); showToast('🌊 Canvas cleared');
+      state.wristXHistory=[];
+    }
+  } else { state.shakeProgress=0; updateShakeRing(0); }
+
+  const ip=lm(hand,8);
+  if(pointing&&!pinched){
+    // pen down
+    if(!lastPenDown){
+      state.drawPathColor=(state.drawPathColor+30)%360;
+      state.activePath={color:`hsl(${state.drawPathColor},80%,65%)`,points:[]};
+    }
+    if(state.activePath) state.activePath.points.push({x:ip.x,y:ip.y});
+    if(state.activePath) drawLivePath(state.activePath);
+    setGesture('✏ Drawing',true);
+    // cursor
+    ctx.save();
+    ctx.beginPath(); ctx.arc(ip.x,ip.y,10,0,Math.PI*2);
+    ctx.strokeStyle=`hsla(${state.drawPathColor},80%,65%,0.8)`;
+    ctx.lineWidth=2; ctx.shadowBlur=15; ctx.shadowColor=`hsl(${state.drawPathColor},80%,65%)`;
+    ctx.stroke();
+    const pulse=Math.sin(t*8)*0.5+0.5;
+    ctx.beginPath(); ctx.arc(ip.x,ip.y,4+pulse*4,0,Math.PI*2);
+    ctx.fillStyle=`hsla(${state.drawPathColor},80%,75%,${0.5+pulse*0.5})`;
+    ctx.fill(); ctx.restore();
+    lastPenDown=true;
+  } else {
+    if(lastPenDown&&state.activePath&&state.activePath.points.length>1){
+      state.drawPaths.push(state.activePath);
+      state.activePath=null;
+      redrawPaths();
+    }
+    lastPenDown=false;
+    if(pinched) setGesture('✋ Pen up',true);
+    else setGesture('point to draw',false);
+  }
+  drawSkeleton(ctx,hand,160);
+}
+function drawLivePath(path){
+  if(path.points.length<2) return;
+  dwX.clearRect(0,0,dwC.width,dwC.height);
+  // draw saved
+  state.drawPaths.forEach(p=>drawPathToCtx(dwX,p));
+  drawPathToCtx(dwX,path);
+}
+function drawPathToCtx(ctx,path){
+  if(path.points.length<2) return;
+  ctx.beginPath();
+  ctx.strokeStyle=path.color; ctx.lineWidth=4.5;
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.shadowBlur=12; ctx.shadowColor=path.color;
+  ctx.moveTo(path.points[0].x,path.points[0].y);
+  for(let i=1;i<path.points.length-1;i++){
+    const mx=(path.points[i].x+path.points[i+1].x)/2;
+    const my=(path.points[i].y+path.points[i+1].y)/2;
+    ctx.quadraticCurveTo(path.points[i].x,path.points[i].y,mx,my);
+  }
+  ctx.stroke(); ctx.shadowBlur=0;
+}
+function updateShakeRing(progress){
+  const ring=document.getElementById('shakeRing');
+  const arc=document.getElementById('shakeArc');
+  ring.style.display=progress>0?'block':'none';
+  const circum=125.6;
+  arc.style.strokeDashoffset=circum*(1-progress);
+  const hue=200+progress*60; // blue→yellow
+  arc.style.stroke=`hsl(${hue},90%,65%)`;
+}
+
+// ═══════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════
+function setGesture(label,active){
+  document.getElementById('gestureLabel').textContent=label;
+  const dot=document.getElementById('activeDot');
+  dot.className=active?'pulse':'';
+}
+let toastTimer=null;
+function showToast(msg){
+  initAudio();
+  const inner=document.getElementById('toastInner');
+  inner.textContent=msg; inner.classList.add('show');
+  inner.style.color=MODES[state.mode].color;
+  inner.style.textShadow=`0 0 40px ${MODES[state.mode].color}`;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>inner.classList.remove('show'),1600);
+}
+function setMode(mode){
+  state.mode=mode;
+  document.querySelectorAll('.mode-btn').forEach(b=>{
+    b.classList.toggle('active',b.dataset.mode===mode);
+  });
+  const c=MODES[mode].color;
+  document.documentElement.style.setProperty('--mode-color',c);
+  document.getElementById('topStripe').style.background=c;
+  document.getElementById('topStripe').style.boxShadow=`0 0 12px ${c}`;
+  document.getElementById('helpTitle').textContent=
+    mode==='play'?'Play Mode':mode==='shapes'?'Shapes Mode':'Write Mode';
+  const ul=document.getElementById('helpList');
+  ul.innerHTML=HELP[mode].map(t=>`<li>${t}</li>`).join('');
+  // write extras
+  document.getElementById('clearBtn').style.display=mode==='write'?'block':'none';
+  document.getElementById('shakeRing').style.display='none';
+  // clear draw canvas if leaving write
+  if(mode!=='write'){dwX.clearRect(0,0,dwC.width,dwC.height);state.drawPaths=[];state.activePath=null;lastPenDown=false;}
+  stopHum();
+}
+
+// ═══════════════════════════════════════════
+//  MEDIAPIPE INIT
+// ═══════════════════════════════════════════
+let mpCamera=null;
+async function startExperience(){
+  initAudio();
+  resize();
+  document.getElementById('splash').classList.add('fade-out');
+  setTimeout(()=>document.getElementById('splash').remove(),900);
+
+  const hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
+  hands.setOptions({
+    maxNumHands:2, modelComplexity:1,
+    minDetectionConfidence:0.72, minTrackingConfidence:0.72
+  });
+  hands.onResults(results=>{
+    state.hands=results.multiHandLandmarks||[];
+  });
+
+  try {
+    const stream=await navigator.mediaDevices.getUserMedia({
+      video:{width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30}}
+    });
+    video.srcObject=stream;
+    await video.play();
+    mpCamera=new Camera(video,{
+      onFrame:async()=>{await hands.send({image:video});},
+      width:1920, height:1080
+    });
+    mpCamera.start();
+  } catch(e){
+    showToast('Camera error!');
+    console.error(e);
+  }
+  requestAnimationFrame(render);
+}
+
+// ═══════════════════════════════════════════
+//  EVENTS
+// ═══════════════════════════════════════════
+document.getElementById('enterBtn').addEventListener('click',()=>{
+  startExperience();
+  setMode('play');
+});
+document.querySelectorAll('.mode-btn').forEach(b=>{
+  b.addEventListener('click',()=>{ initAudio(); setMode(b.dataset.mode); });
+});
+document.getElementById('clearBtn').addEventListener('click',()=>{
+  state.drawPaths=[]; state.activePath=null;
+  dwX.clearRect(0,0,dwC.width,dwC.height);
+  playPop(); showToast('🗑 Canvas cleared');
+});
+
+// Init help
+setMode('play');
+</script>
+</body>
+</html>
